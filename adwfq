@@ -1,58 +1,50 @@
--- Server Hopper para Steal a Brainrot
--- Salta automáticamente entre servidores con entre 3 y 7 jugadores
-
-local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
-local Players = game:GetService("Players")
-
+local Http = game:GetService("HttpService")
+local TPS = game:GetService("TeleportService")
+local Player = game.Players.LocalPlayer
 local placeId = 109983668079237
-local visitedServers = {}
 
--- Devuelve lista de servidores con 3 a 7 jugadores
-local function getServers()
-    local servers = {}
-    local success, result
-
-    success, result = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?limit=100"))
+local function getServers(cursor)
+    local url = "https://games.roblox.com/v1/games/"..placeId.."/servers/Public?sortOrder=Asc&limit=100"
+    if cursor then
+        url = url .. "&cursor=" .. cursor
+    end
+    local success, response = pcall(function()
+        return game:HttpGet(url)
     end)
-
-    if success and result and result.data then
-        for _, server in ipairs(result.data) do
-            local count = server.playing
-            if count > 2 and count < 8 and not visitedServers[server.id] then
-                table.insert(servers, server.id)
-                visitedServers[server.id] = true
-            end
-        end
-    end
-
-    return servers
-end
-
--- Intenta saltar a un servidor válido
-local function hopToServer()
-    local servers = getServers()
-    if #servers > 0 then
-        for _, serverId in ipairs(servers) do
-            wait(2)
-            local success, err = pcall(function()
-                TeleportService:TeleportToPlaceInstance(placeId, serverId, Players.LocalPlayer)
-            end)
-            if success then
-                break
-            else
-                warn("Error al teletransportar: " .. tostring(err))
-            end
-        end
+    if success then
+        return Http:JSONDecode(response)
     else
-        warn("No se encontraron servidores válidos (3–7 jugadores).")
+        warn("Error al obtener servidores.")
+        return nil
     end
 end
 
--- Bucle infinito de salto
+local function hopToServer()
+    local cursor = nil
+    local tried = {}
+
+    repeat
+        local servers = getServers(cursor)
+        if not servers then return end
+
+        for _, server in pairs(servers.data) do
+            if server.playing > 2 and server.playing < 8 and server.id ~= game.JobId then
+                if not tried[server.id] then
+                    tried[server.id] = true
+                    print("Saltando al servidor con "..server.playing.." jugadores...")
+                    TPS:TeleportToPlaceInstance(placeId, server.id, Player)
+                    return
+                end
+            end
+        end
+
+        cursor = servers.nextPageCursor
+        wait(1)
+    until not cursor
+end
+
 while true do
-    hopToServer()
-    wait(5)
+    wait(2) -- espera 2 segundos antes de saltar
+    pcall(hopToServer)
 end
 
