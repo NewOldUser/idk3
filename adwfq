@@ -1,39 +1,31 @@
-local HttpService = game:GetService("HttpService")
-local TeleportService = game:GetService("TeleportService")
-local Players = game:GetService("Players")
+-- PlaceId del juego (Steal a Brainrot)
+local placeId = 109983668079237
 
-local PlaceID = 109983668079237
-local currentJobId = game.JobId
-local triedServers = {}
-local hopInterval = 5  -- segundos entre saltos
+-- Tabla para guardar los IDs de servidores visitados
+local visitedServers = {}
 
-local function serverHop()
-    local success, response = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet(
-            "https://games.roblox.com/v1/games/"..PlaceID.."/servers/Public?sortOrder=Asc&limit=100"
-        ))
+-- Función para hacer salto de servidor
+local function hop()
+    local HttpService = game:GetService("HttpService")
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"))
     end)
-    if not success or not response or not response.data then
-        warn("No se pudo obtener servidores")
-        return
-    end
 
-    for _, server in ipairs(response.data) do
-        if server.playing < server.maxPlayers and
-           server.id ~= currentJobId and
-           not triedServers[server.id]
-        then
-            triedServers[server.id] = true
-            print("Teleporting to server: " .. server.id)
-            TeleportService:TeleportToPlaceInstance(PlaceID, server.id, Players.LocalPlayer)
-            wait(3)
-            return  -- detener para no saltar múltiple veces muy rápido
+    if success and result and result.data then
+        for _, server in ipairs(result.data) do
+            if server.playing < server.maxPlayers and not visitedServers[server.id] then
+                visitedServers[server.id] = true
+                wait(2) -- espera 2 segundos antes de saltar
+                game:GetService("TeleportService"):TeleportToPlaceInstance(placeId, server.id, game.Players.LocalPlayer)
+                break
+            end
         end
     end
 end
 
+-- Bucle para hacer saltos cada 2 segundos
 while true do
-    serverHop()
-    wait(hopInterval)
+    hop()
+    wait(2)
 end
 
