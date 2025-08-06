@@ -1,0 +1,39 @@
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+
+local PlaceID = 109983668079237
+local currentJobId = game.JobId
+local triedServers = {}
+local hopInterval = 5  -- segundos entre saltos
+
+local function serverHop()
+    local success, response = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(
+            "https://games.roblox.com/v1/games/"..PlaceID.."/servers/Public?sortOrder=Asc&limit=100"
+        ))
+    end)
+    if not success or not response or not response.data then
+        warn("No se pudo obtener servidores")
+        return
+    end
+
+    for _, server in ipairs(response.data) do
+        if server.playing < server.maxPlayers and
+           server.id ~= currentJobId and
+           not triedServers[server.id]
+        then
+            triedServers[server.id] = true
+            print("Teleporting to server: " .. server.id)
+            TeleportService:TeleportToPlaceInstance(PlaceID, server.id, Players.LocalPlayer)
+            wait(3)
+            return  -- detener para no saltar múltiple veces muy rápido
+        end
+    end
+end
+
+while true do
+    serverHop()
+    wait(hopInterval)
+end
+
