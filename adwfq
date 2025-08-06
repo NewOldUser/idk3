@@ -1,31 +1,58 @@
--- PlaceId del juego (Steal a Brainrot)
-local placeId = 109983668079237
+-- Server Hopper para Steal a Brainrot
+-- Salta automáticamente entre servidores con entre 3 y 7 jugadores
 
--- Tabla para guardar los IDs de servidores visitados
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+
+local placeId = 109983668079237
 local visitedServers = {}
 
--- Función para hacer salto de servidor
-local function hop()
-    local HttpService = game:GetService("HttpService")
-    local success, result = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Desc&limit=100"))
+-- Devuelve lista de servidores con 3 a 7 jugadores
+local function getServers()
+    local servers = {}
+    local success, result
+
+    success, result = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet("https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?limit=100"))
     end)
 
     if success and result and result.data then
         for _, server in ipairs(result.data) do
-            if server.playing < server.maxPlayers and not visitedServers[server.id] then
+            local count = server.playing
+            if count > 2 and count < 8 and not visitedServers[server.id] then
+                table.insert(servers, server.id)
                 visitedServers[server.id] = true
-                wait(2) -- espera 2 segundos antes de saltar
-                game:GetService("TeleportService"):TeleportToPlaceInstance(placeId, server.id, game.Players.LocalPlayer)
-                break
             end
         end
     end
+
+    return servers
 end
 
--- Bucle para hacer saltos cada 2 segundos
+-- Intenta saltar a un servidor válido
+local function hopToServer()
+    local servers = getServers()
+    if #servers > 0 then
+        for _, serverId in ipairs(servers) do
+            wait(2)
+            local success, err = pcall(function()
+                TeleportService:TeleportToPlaceInstance(placeId, serverId, Players.LocalPlayer)
+            end)
+            if success then
+                break
+            else
+                warn("Error al teletransportar: " .. tostring(err))
+            end
+        end
+    else
+        warn("No se encontraron servidores válidos (3–7 jugadores).")
+    end
+end
+
+-- Bucle infinito de salto
 while true do
-    hop()
-    wait(2)
+    hopToServer()
+    wait(5)
 end
 
