@@ -1,50 +1,24 @@
+local Player = game.Players.LocalPlayer    
 local Http = game:GetService("HttpService")
 local TPS = game:GetService("TeleportService")
-local Player = game.Players.LocalPlayer
-local placeId = 109983668079237
+local Api = "https://www.roblox.com/es/games/109983668079237/Steal-a-Brainrot"
 
-local function getServers(cursor)
-    local url = "https://games.roblox.com/v1/games/"..placeId.."/servers/Public?sortOrder=Asc&limit=100"
-    if cursor then
-        url = url .. "&cursor=" .. cursor
-    end
-    local success, response = pcall(function()
-        return game:HttpGet(url)
-    end)
-    if success then
-        return Http:JSONDecode(response)
-    else
-        warn("Error al obtener servidores.")
-        return nil
-    end
+local _place,_id = game.PlaceId, game.JobId
+-- Asc for lowest player count, Desc for highest player count
+local _servers = Api.._place.."/servers/Public?sortOrder=Asc&limit=10"
+function ListServers(cursor)
+   local Raw = game:HttpGet(_servers .. ((cursor and "&cursor="..cursor) or ""))
+   return Http:JSONDecode(Raw)
 end
 
-local function hopToServer()
-    local cursor = nil
-    local tried = {}
+time_to_wait = 120 --seconds
 
-    repeat
-        local servers = getServers(cursor)
-        if not servers then return end
-
-        for _, server in pairs(servers.data) do
-            if server.playing > 2 and server.playing < 8 and server.id ~= game.JobId then
-                if not tried[server.id] then
-                    tried[server.id] = true
-                    print("Saltando al servidor con "..server.playing.." jugadores...")
-                    TPS:TeleportToPlaceInstance(placeId, server.id, Player)
-                    return
-                end
-            end
-        end
-
-        cursor = servers.nextPageCursor
-        wait(1)
-    until not cursor
-end
-
-while true do
-    wait(2) -- espera 2 segundos antes de saltar
-    pcall(hopToServer)
+-- choose a random server and join every 2 minutes
+while wait(time_to_wait) do
+   --freeze player before teleporting to prevent synapse crash?
+   Player.Character.HumanoidRootPart.Anchored = true
+   local Servers = ListServers()
+   local Server = Servers.data[math.random(1,#Servers.data)]
+   TPS:TeleportToPlaceInstance(_place, Server.id, Player)
 end
 
